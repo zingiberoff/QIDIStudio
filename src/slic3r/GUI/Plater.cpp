@@ -22221,14 +22221,22 @@ Preset *get_printer_preset(std::shared_ptr<QDSDevice> obj){
         if (!printer_it->is_system)
             continue;
 
-        ConfigOption               *printer_nozzle_opt  = printer_it->config.option("nozzle_diameter");
-        ConfigOptionFloatsNullable *printer_nozzle_vals = nullptr;
-        if (printer_nozzle_opt) printer_nozzle_vals = dynamic_cast<ConfigOptionFloatsNullable *>(printer_nozzle_opt);
         std::string model_id = printer_it->get_current_printer_type(preset_bundle);
+        if (model_id.compare(printer_type) != 0)
+            continue;
 
-        if (model_id.compare(printer_type) == 0 && printer_nozzle_vals && abs(printer_nozzle_vals->get_at(0) - machine_nozzle_diameter) < 1e-3) {
+        // fork: nozzle_diameter is declared as coFloats; presets loaded from JSON hold a plain ConfigOptionFloats,
+        // so the former dynamic_cast<ConfigOptionFloatsNullable*> always failed and no preset ever matched.
+        const ConfigOption *printer_nozzle_opt = printer_it->config.option("nozzle_diameter");
+        double              preset_nozzle      = -1.;
+        if (auto *v = dynamic_cast<const ConfigOptionFloatsNullable *>(printer_nozzle_opt); v && !v->values.empty())
+            preset_nozzle = v->values.front();
+        else if (auto *v = dynamic_cast<const ConfigOptionFloats *>(printer_nozzle_opt); v && !v->values.empty())
+            preset_nozzle = v->values.front();
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << " candidate " << printer_it->name << " model " << model_id
+                                << " nozzle " << preset_nozzle << " device nozzle " << machine_nozzle_diameter;
+        if (std::fabs(preset_nozzle - machine_nozzle_diameter) < 1e-3)
             printer_preset = &(*printer_it);
-        }
     }
     return printer_preset;
 }
