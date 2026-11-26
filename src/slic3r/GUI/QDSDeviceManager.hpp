@@ -298,7 +298,8 @@ public:
     std::string m_box_signature;
     bool m_is_auto_reload{ false };    // 
     std::string m_cur_slot;            // 当前使用的槽，第一个槽为 slot-0  第四个为slot-3
-    int m_box_count{ 0 };              // 当前盒子的数量
+    int m_box_count{ 0 };
+    json m_legacy_mcc_state;           // fork: accumulated multi_color_controller of old firmware (legacy layout)              // 当前盒子的数量
     std::vector<Filament> m_filamentConfig; // 所有的数据，index是filament的编号
     bool m_auto_read_rfid{ false };             // 插入时自动更新
     bool m_init_detect{ false };                // 开机时检测

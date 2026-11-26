@@ -919,6 +919,124 @@ void QDSDevice::updateByJsonData(const json& status)
 	}
 }
 
+// fork: QIDI Q2 firmware 01.01.02.04 (stock multi_color_controller.so) reports the Box in the "legacy" layout:
+//   hardware.box_count, slots.states.slotN, slots.materials.slotN.{filament{filament,type,min_temp,...},color,vendor},
+//   drying.boxN.{dry_state,end_time}, config.{last_load_slot,auto_read_rfid,...}
+// while Studio 02.07 parses the flat layout of newer firmware (box_count, box0_box_inserted_N,
+// box0_filament_info_N_filament_str, ...). Convert the legacy layout (also partial websocket diffs) into the flat one.
+static bool mcc_is_legacy_layout(const json &mcc)
+{
+    return mcc.is_object() && (mcc.contains("slots") || mcc.contains("hardware") || mcc.contains("drying") ||
+                               (mcc.contains("config") && mcc["config"].is_object()));
+}
+
+static int mcc_legacy_to_int(const json &v, int def = 0)
+{
+    try {
+        if (v.is_number_integer()) return v.get<int>();
+        if (v.is_number()) return static_cast<int>(v.get<double>());
+        if (v.is_string()) return std::stoi(v.get<std::string>());
+    } catch (...) {}
+    return def;
+}
+
+static std::string mcc_legacy_find_filament_id(const std::vector<QDSDevice::Filament> &cfg,
+                                               const std::string &vendor, const std::string &name, const std::string &type)
+{
+    if (name.empty() && type.empty())
+        return {};
+    const std::string full_name = vendor.empty() ? name : vendor + " " + name;
+    for (const auto &f : cfg)
+        if (!f.filament_id.empty() && (f.name == full_name || (f.vendor == vendor && f.name == name)))
+            return f.filament_id;
+    for (const auto &f : cfg)
+        if (!f.filament_id.empty() && f.vendor == vendor && f.type == type)
+            return f.filament_id;
+    return {};
+}
+
+static json mcc_convert_legacy_layout(const json &in, const std::vector<QDSDevice::Filament> &cfg)
+{
+    json out = json::object();
+
+    if (in.contains("hardware") && in["hardware"].is_object() && in["hardware"].contains("box_count"))
+        out["box_count"] = mcc_legacy_to_int(in["hardware"]["box_count"]);
+
+    if (in.contains("config") && in["config"].is_object()) {
+        const json &c = in["config"];
+        if (c.contains("last_load_slot") && c["last_load_slot"].is_string())
+            out["last_load_slot"] = c["last_load_slot"];
+        for (const char *key : {"auto_read_rfid", "auto_init_detect", "auto_reload_detect"})
+            if (c.contains(key))
+                out[key] = mcc_legacy_to_int(c[key]);
+        if (!out.contains("box_count") && c.contains("box_count"))
+            out["box_count"] = mcc_legacy_to_int(c["box_count"]);
+    }
+
+    if (in.contains("drying") && in["drying"].is_object()) {
+        for (auto it = in["drying"].begin(); it != in["drying"].end(); ++it) {
+            // "box1" -> box index 0
+            const std::string &k = it.key();
+            if (k.rfind("box", 0) != 0 || !it.value().is_object())
+                continue;
+            const int box_idx = mcc_legacy_to_int(json(k.substr(3)), 0) - 1;
+            if (box_idx < 0 || box_idx > 3)
+                continue;
+            const std::string prefix = "box" + std::to_string(box_idx) + "_";
+            if (it.value().contains("dry_state"))
+                out[prefix + "dry_state"] = mcc_legacy_to_int(it.value()["dry_state"]);
+            if (it.value().contains("end_time"))
+                out[prefix + "end_time"] = mcc_legacy_to_int(it.value()["end_time"]);
+        }
+    }
+
+    if (in.contains("slots") && in["slots"].is_object()) {
+        const json &slots = in["slots"];
+        for (int k = 0; k < 16; ++k) {
+            const std::string slot   = "slot" + std::to_string(k);
+            const std::string prefix = "box" + std::to_string(k / 4) + "_";
+            const std::string idx    = std::to_string(k % 4);
+
+            if (slots.contains("states") && slots["states"].is_object() && slots["states"].contains(slot))
+                out[prefix + "box_inserted_" + idx] = mcc_legacy_to_int(slots["states"][slot]);
+
+            if (!slots.contains("materials") || !slots["materials"].is_object() || !slots["materials"].contains(slot))
+                continue;
+            const json &m = slots["materials"][slot];
+            if (!m.is_object())
+                continue;
+            const std::string fi = prefix + "filament_info_" + idx + "_";
+            std::string vendor, name, type;
+            if (m.contains("vendor") && m["vendor"].is_string()) {
+                vendor = m["vendor"].get<std::string>();
+                out[fi + "vendor_str"] = vendor;
+            }
+            if (m.contains("color") && m["color"].is_string())
+                out[fi + "color_rgb_str"] = json::array({m["color"].get<std::string>()});
+            if (m.contains("filament") && m["filament"].is_object()) {
+                const json &f = m["filament"];
+                if (f.contains("filament") && f["filament"].is_string()) {
+                    name = f["filament"].get<std::string>();
+                    out[fi + "filament_str"] = name;
+                }
+                if (f.contains("type") && f["type"].is_string()) {
+                    type = f["type"].get<std::string>();
+                    out[fi + "filament_type"] = type;
+                }
+                for (const char *key : {"min_temp", "max_temp", "box_min_temp", "box_max_temp"})
+                    if (f.contains(key))
+                        out[fi + key] = mcc_legacy_to_int(f[key]);
+            }
+            const std::string filament_id = mcc_legacy_find_filament_id(cfg, vendor, name, type);
+            if (!filament_id.empty())
+                out[fi + "filament_id"] = filament_id;
+            else if (!name.empty() || !type.empty())
+                BOOST_LOG_TRIVIAL(warning) << "legacy box: no local filament preset for " << vendor << " / " << name << " / " << type;
+        }
+    }
+    return out;
+}
+
 //y84
 void QDSDevice::updateBoxDataByJson(const json status)
 {
@@ -945,7 +1063,21 @@ void QDSDevice::updateBoxDataByJson(const json status)
         updateFilamentConfig();
     }
 
-    const json& mcc = status["multi_color_controller"];
+    // fork: accept the legacy Box layout of old printer firmware
+    const json& mcc_raw = status["multi_color_controller"];
+    json mcc_converted;
+    const bool mcc_legacy = mcc_is_legacy_layout(mcc_raw);
+    if (mcc_legacy) {
+        // websocket notifications carry only the changed fields: keep the full legacy state and convert all of it,
+        // so filament ids are resolved even when the materials arrived before the local filament catalog was ready.
+        if (!m_legacy_mcc_state.is_object())
+            m_legacy_mcc_state = json::object();
+        m_legacy_mcc_state.merge_patch(mcc_raw);
+        std::shared_lock<std::shared_mutex> lk(m_config_mtx);
+        mcc_converted = mcc_convert_legacy_layout(m_legacy_mcc_state, m_filamentConfig);
+        BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << " legacy box layout converted: " << mcc_converted.dump();
+    }
+    const json& mcc = mcc_legacy ? mcc_converted : mcc_raw;
     json boxContainer = (mcc.contains("box") && mcc["box"].is_object()) ? mcc["box"] : mcc;
 
     //y84
