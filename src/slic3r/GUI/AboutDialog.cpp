@@ -290,6 +290,8 @@ AboutDialog::AboutDialog()
 #else
         auto version_string = _L("Version") + " " + std::string(version_text);
 #endif
+        // Своя сборка: метка рядом с версией.
+        version_string += wxString::FromUTF8("  ·  " FORK_BUILD_LABEL " " FORK_BUILD_INFO);
         wxStaticText* version = new wxStaticText(this, wxID_ANY, version_string.c_str(), wxDefaultPosition, wxDefaultSize);
         wxFont version_font = GetFont();
         #ifdef __WXMSW__

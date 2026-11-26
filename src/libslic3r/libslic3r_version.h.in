@@ -6,6 +6,9 @@
 #define SLIC3R_VERSION "@SLIC3R_VERSION@"
 #define SLIC3R_BUILD_ID "@SLIC3R_BUILD_ID@"
 #define SLIC3R_BUILD_TIME "@SLIC3R_BUILD_TIME@"
+// Видимая метка своей сборки, чтобы отличать форк от официального QIDI Studio.
+#define FORK_BUILD_LABEL "Своя сборка"
+#define FORK_BUILD_INFO "@FORK_BUILD_INFO@"
 #define SLIC3R_COMPILE_VERSION "@SLIC3R_COMPILE_VERSION@"
 //#define SLIC3R_RC_VERSION "@SLIC3R_VERSION@"
 #define QDT_RELEASE_TO_PUBLIC @QDT_RELEASE_TO_PUBLIC@

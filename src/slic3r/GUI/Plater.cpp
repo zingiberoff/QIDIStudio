@@ -16287,7 +16287,11 @@ void Plater::priv::set_project_name(const wxString& project_name)
     wxGetApp().mainframe->SetTitle(m_project_name + " - QIDIStudio");
     wxGetApp().mainframe->topbar()->SetTitle(m_project_name);
 #else
-    wxGetApp().mainframe->SetTitle(m_project_name);
+    {
+        // Своя сборка: метка в заголовке окна, чтобы отличать форк от официального QIDI Studio.
+        const wxString fork_mark = wxString::FromUTF8(FORK_BUILD_LABEL " · " FORK_BUILD_INFO);
+        wxGetApp().mainframe->SetTitle(m_project_name.IsEmpty() ? fork_mark : m_project_name + wxString::FromUTF8(" — ") + fork_mark);
+    }
     if (!m_project_name.IsEmpty())
         wxGetApp().mainframe->update_title_colour_after_set_title();
 #endif

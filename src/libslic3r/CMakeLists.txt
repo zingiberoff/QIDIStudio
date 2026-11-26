@@ -16,6 +16,11 @@ execute_process(
 set(SLIC3R_COMPILE_VERSION "${GIT_SHA1}")
 endif()
 
+# Метка своей сборки (форк): короткий sha коммита и дата сборки. Обновляется при каждом конфигурировании CMake.
+execute_process(COMMAND git rev-parse --short HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE FORK_GIT_SHA OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+string(TIMESTAMP FORK_BUILD_DATE "%d.%m.%Y")
+set(FORK_BUILD_INFO "${FORK_GIT_SHA} от ${FORK_BUILD_DATE}")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/libslic3r_version.h.in ${CMAKE_CURRENT_BINARY_DIR}/libslic3r_version.h @ONLY)
 
 if (MINGW)
