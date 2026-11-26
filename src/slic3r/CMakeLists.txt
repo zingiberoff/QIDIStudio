@@ -241,8 +241,6 @@ set(SLIC3R_GUI_SOURCES
     GUI/DownloadManager.hpp
     GUI/QDSDeviceManager.cpp
     GUI/QDSDeviceManager.hpp
-    QIDI/UserPresetSyncManager.cpp
-    QIDI/UserPresetSyncManager.hpp
     GUI/BedShapeDialog.cpp
     GUI/BedShapeDialog.hpp
     GUI/Plater.cpp
@@ -694,6 +692,18 @@ if(QDT_RELEASE_TO_PUBLIC)
             QIDI/QIDIDeviceWebSocket.cpp
             QIDI/QIDIDeviceWebSocket.hpp
 		)
+else ()
+	# fork: open replacement for the unpublished QIDI network module (LAN / Moonraker only, no cloud)
+	list(APPEND SLIC3R_GUI_SOURCES
+            QIDI/QIDINetworkTypes.hpp
+            QIDI/P2PManager.hpp
+            QIDI/QIDIFileManager.hpp
+            QIDI/QIDINetwork.hpp
+            QIDI/QIDIDeviceApi.cpp
+            QIDI/QIDIDeviceApi.hpp
+            QIDI/QIDIDeviceWebSocket.cpp
+            QIDI/QIDIDeviceWebSocket.hpp
+		)
 endif ()
 
 
@@ -770,11 +780,17 @@ target_link_libraries(libslic3r_gui libslic3r cereal imgui imguizmo minilzo GLEW
 if (WIN32)
     target_link_libraries(libslic3r_gui ${CMAKE_CURRENT_SOURCE_DIR}/../../deps/pgLibConnect/Lib/Windows/pgDllConnect.lib)
 elseif (APPLE)
-    target_link_libraries(libslic3r_gui ${CMAKE_CURRENT_SOURCE_DIR}/../../deps/pgLibConnect/Lib/MacOSX/libconnect.a)
+    # fork: the public repository does not ship deps/pgLibConnect (P2P), link it only when present
+    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../../deps/pgLibConnect/Lib/MacOSX/libconnect.a)
+        target_link_libraries(libslic3r_gui ${CMAKE_CURRENT_SOURCE_DIR}/../../deps/pgLibConnect/Lib/MacOSX/libconnect.a)
+    endif ()
     # libconnect.a 内部依赖 DNS 解析（res_9_init 等），需链接系统 libresolv
     target_link_libraries(libslic3r_gui resolv)
 elseif (UNIX)
-    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    # The public repository no longer ships deps/pgLibConnect, and no source calls it.
+    if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../../deps/pgLibConnect/Lib/Ubuntu)
+        message(STATUS "deps/pgLibConnect is missing; libslic3r_gui links without it")
+    elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
         target_link_libraries(libslic3r_gui ${CMAKE_CURRENT_SOURCE_DIR}/../../deps/pgLibConnect/Lib/Ubuntu/x64/libconnect.a)
     else ()
         target_link_libraries(libslic3r_gui ${CMAKE_CURRENT_SOURCE_DIR}/../../deps/pgLibConnect/Lib/Ubuntu/x32/libconnect.a)

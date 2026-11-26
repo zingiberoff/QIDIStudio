@@ -157,7 +157,7 @@ function build_slicer() {
             if [ "1." != "$BUILD_ONLY". ]; then
                 cmake "${PROJECT_DIR}" \
                     -G "${SLICER_CMAKE_GENERATOR}" \
-                    -DQDT_RELEASE_TO_PUBLIC=1 \
+                    -DQDT_RELEASE_TO_PUBLIC=${QDT_RELEASE_TO_PUBLIC:-0} \
                     -DQDT_INTERNAL_TESTING=0 \
                     -DCMAKE_PREFIX_PATH="$DEPS/usr/local" \
                     -DCMAKE_INSTALL_PREFIX="$PWD/QIDIStudio" \

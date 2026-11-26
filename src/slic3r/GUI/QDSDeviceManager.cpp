@@ -27,6 +27,7 @@
 #include <sstream>
 #include <unordered_set>
 #include <utility>
+#include <wx/mstream.h>
 #include <future>
 #include <functional>
 #include <algorithm>

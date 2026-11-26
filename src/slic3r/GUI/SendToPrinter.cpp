@@ -17,6 +17,7 @@
 #include <wx/progdlg.h>
 #include <wx/clipbrd.h>
 #include <wx/dcgraph.h>
+#include <wx/tooltip.h>
 #include <miniz.h>
 #include <algorithm>
 #include "BitmapCache.hpp"
@@ -28,9 +29,7 @@
 #include "QDSPrinterWebView.hpp"
 #include "OctoPrint.hpp"
 
-#if QDT_RELEASE_TO_PUBLIC
 #include "../QIDI/P2PManager.hpp"
-#endif
 #include <wx/weakref.h>
 
 namespace Slic3r {

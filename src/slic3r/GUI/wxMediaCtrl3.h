@@ -9,6 +9,7 @@
 #define wxMediaCtrl3_h
 
 #include "wx/uri.h"
+#include "wx/panel.h"
 #include "wx/mediactrl.h"
 #include "wx/timer.h"
 #include "../Utils/FrameBuffer.hpp"

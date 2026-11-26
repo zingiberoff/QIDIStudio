@@ -1,6 +1,8 @@
 #include "Thumbnails.hpp"
+#include "../format.hpp"
 #include "../miniz_extension.hpp"
 
+#include <boost/algorithm/string/case_conv.hpp>
 #include <jpeglib.h>
 #include <jerror.h>
 #include <vector>

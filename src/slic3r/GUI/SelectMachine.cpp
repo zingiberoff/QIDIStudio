@@ -49,6 +49,7 @@
 #include <wx/clipbrd.h>
 #include <wx/dcgraph.h>
 #include <wx/mstream.h>
+#include <wx/tooltip.h>
 #include <miniz.h>
 #include <algorithm>
 #include "Plater.hpp"

@@ -11,9 +11,7 @@
 #include "DeviceManager.hpp"
 #include "BaseTransparentDPIFrame.hpp"
 
-#if QDT_RELEASE_TO_PUBLIC
 #include "../QIDI/QIDINetworkTypes.hpp"
-#endif
 
 class Button;
 class CheckBox;

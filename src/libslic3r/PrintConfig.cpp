@@ -2,6 +2,7 @@
 #include "ClipperUtils.hpp"
 #include "Config.hpp"
 #include "Flow.hpp"
+#include "format.hpp"
 #include "I18N.hpp"
 #include "FilamentMixer.hpp"
 

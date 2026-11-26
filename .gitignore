@@ -32,6 +32,7 @@ SVG
 test.js
 /.cache/
 .clangd
-/src/slic3r/QIDI/
+# fork: src/slic3r/QIDI/ holds our own Moonraker client (QIDI does not publish theirs)
+#/src/slic3r/QIDI/
 /deps/pgLibConnect
 .workbuddy

@@ -6,6 +6,8 @@
 #include "MainFrame.hpp"
 #include "ReleaseNote.hpp"
 
+#include <wx/mstream.h>
+
 namespace Slic3r {
 namespace GUI
 {

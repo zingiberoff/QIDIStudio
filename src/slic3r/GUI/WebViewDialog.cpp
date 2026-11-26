@@ -35,9 +35,7 @@
 #include <wrl/client.h>
 #endif
 
-#if QDT_RELEASE_TO_PUBLIC
 #include "../QIDI/QIDINetwork.hpp"
-#endif
 
 namespace pt = boost::property_tree;
 

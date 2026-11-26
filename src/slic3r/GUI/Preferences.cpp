@@ -7,6 +7,7 @@
 #include "I18N.hpp"
 #include "UxProgramTermsDialog.hpp"
 #include "libslic3r/AppConfig.hpp"
+#include <wx/display.h>
 #include <wx/notebook.h>
 #include "Notebook.hpp"
 #include "ReleaseNote.hpp"

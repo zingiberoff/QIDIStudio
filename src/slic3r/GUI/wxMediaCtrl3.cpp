@@ -5,6 +5,7 @@
 #include <boost/log/trivial.hpp>
 #include <wx/dcclient.h>
 #include <wx/dcgraph.h>
+#include <wx/mstream.h>
 #ifdef __WIN32__
 #include <versionhelpers.h>
 #include <wx/msw/registry.h>
