@@ -7094,7 +7094,9 @@ void Tab::save_preset(std::string name /*= ""*/, bool detach, bool save_to_proje
     }
 
     // set sync_info for sync service
-    if (exist_preset) {
+    if (new_preset->is_system) {
+        // Своя сборка: правка системного профиля — это локальная поправка, в облако не синхронизируется.
+    } else if (exist_preset) {
         new_preset->sync_info = "update";
         BOOST_LOG_TRIVIAL(info) << "sync_preset: update preset = " << new_preset->name;
     }
@@ -7105,7 +7107,8 @@ void Tab::save_preset(std::string name /*= ""*/, bool detach, bool save_to_proje
             new_preset->user_id = wxGetApp().get_current_user_id();
         BOOST_LOG_TRIVIAL(info) << "sync_preset: create preset = " << new_preset->name;
     }
-    new_preset->save_info();
+    if (!new_preset->is_system)
+        new_preset->save_info();
 
     // y84
 #if QDT_RELEASE_TO_PUBLIC
@@ -7127,7 +7130,8 @@ void Tab::save_preset(std::string name /*= ""*/, bool detach, bool save_to_proje
     }
 
     // If current profile is saved, "delete preset" button have to be enabled
-    m_btn_delete_preset->Show();
+    if (!new_preset->is_system)
+        m_btn_delete_preset->Show();
     m_btn_delete_preset->GetParent()->Layout();
 
     if (m_type == Preset::TYPE_PRINTER)

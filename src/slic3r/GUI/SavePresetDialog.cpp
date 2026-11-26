@@ -64,7 +64,8 @@ SavePresetDialog::Item::Item(Preset::Type type, const std::string &suffix, wxBox
     m_presets = tab->get_presets();
 
     const Preset &sel_preset  = m_presets->get_selected_preset();
-    std::string   preset_name = sel_preset.is_default ? "Untitled" : sel_preset.is_system ? (boost::format(("%1% - %2%")) % sel_preset.name % suffix).str() : sel_preset.name;
+    // Своя сборка: системный профиль по умолчанию сохраняется сам в себя (поправкой), без копии «- Копировать».
+    std::string   preset_name = sel_preset.is_default ? "Untitled" : sel_preset.name;
 
     // if name contains extension
     if (boost::iends_with(preset_name, ".ini")) {
@@ -254,7 +255,12 @@ void SavePresetDialog::Item::update()
     }
 
     const Preset *existing = m_presets->find_preset(m_preset_name, false);
-    if (m_valid_type == Valid && existing && (existing->is_default || existing->is_system)) {
+    if (m_valid_type == Valid && existing && existing->is_system && !existing->is_default &&
+        m_preset_name == m_presets->get_selected_preset_name()) {
+        // Своя сборка: разрешено сохранять правки в выбранный системный профиль.
+        info_line    = wxString::FromUTF8("Изменения будут сохранены в системный профиль. Они переживут обновление профилей QIDI.");
+        m_valid_type = Warning;
+    } else if (m_valid_type == Valid && existing && (existing->is_default || existing->is_system)) {
         info_line = _L("Overwrite a system profile is not allowed");
         m_valid_type = NoValid;
     }
@@ -333,6 +339,9 @@ void SavePresetDialog::Item::accept()
     if (m_valid_type == Warning) {
         // QDS add sync info
         auto    it               = m_presets->find_preset(m_preset_name, false);
+        // Своя сборка: системный профиль сохраняется поправкой — не удалять его и не трогать облако.
+        if (it == nullptr || it->is_system)
+            return;
         Preset &current_preset   = *it;
         current_preset.sync_info = "delete";
         if (!current_preset.setting_id.empty()) {

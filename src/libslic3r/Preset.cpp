@@ -2655,6 +2655,13 @@ void PresetCollection::save_current_preset(const std::string &new_name, bool det
         // Preset with the same name found.
         Preset &preset = *it;
         //QDS: add project embedded preset logic
+        if (preset.is_system && !preset.is_default && !save_to_project && !detach) {
+            // Своя сборка: правка системного профиля сохраняется в него самого (через поправку).
+            unlock();
+            this->save_system_override(preset, std::move(curr_preset.config));
+            this->select_preset_by_name(new_name, true);
+            return;
+        }
         if (preset.is_default || preset.is_system) {
         //if (preset.is_default || preset.is_external || preset.is_system)
             // Cannot overwrite the default preset.
@@ -3490,6 +3497,91 @@ std::string PresetCollection::section_name() const
     case Preset::TYPE_PRINTER:      return PRESET_PRINTER_NAME;
     default:                        return "invalid";
     }
+}
+
+std::string PresetCollection::system_overrides_dir() const
+{
+    return (boost::filesystem::path(data_dir()) / "system_overrides" / this->section_name()).make_preferred().string();
+}
+
+static std::string system_override_file_name(const std::string &preset_name)
+{
+    std::string fname = preset_name;
+    for (char &c : fname)
+        if (c == '/' || c == '\\' || c == ':') c = '_';
+    return fname + ".json";
+}
+
+void PresetCollection::apply_system_overrides()
+{
+    m_system_pristine.clear();
+    boost::filesystem::path dir(this->system_overrides_dir());
+    boost::system::error_code ec;
+    if (!boost::filesystem::is_directory(dir, ec))
+        return;
+    for (auto &entry : boost::filesystem::directory_iterator(dir, ec)) {
+        const std::string path = entry.path().string();
+        if (!Slic3r::is_json_file(path))
+            continue;
+        try {
+            boost::nowide::ifstream ifs(path);
+            nlohmann::json j;
+            ifs >> j;
+            const std::string name = j.value("name", std::string());
+            auto it = this->find_preset_internal(name);
+            if (name.empty() || it == m_presets.end() || it->name != name || !it->is_system) {
+                BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": override without system preset: " << path;
+                continue;
+            }
+            Preset &preset = *it;
+            m_system_pristine[name] = preset.config;
+            ConfigSubstitutionContext ctx(ForwardCompatibilitySubstitutionRule::EnableSilent);
+            const nlohmann::json &values = j["values"];
+            for (auto v = values.begin(); v != values.end(); ++v) {
+                if (!preset.config.has(v.key()) && !this->default_preset().config.has(v.key()))
+                    continue;
+                preset.config.set_deserialize(v.key(), v.value().get<std::string>(), ctx);
+            }
+            BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": applied " << values.size() << " overrides to system preset " << name;
+        } catch (const std::exception &err) {
+            BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << ": failed to apply " << path << ": " << err.what();
+        }
+    }
+}
+
+void PresetCollection::save_system_override(Preset &preset, DynamicPrintConfig &&new_config)
+{
+    lock();
+    auto pit = m_system_pristine.find(preset.name);
+    if (pit == m_system_pristine.end())
+        pit = m_system_pristine.emplace(preset.name, preset.config).first;
+    const DynamicPrintConfig &pristine = pit->second;
+
+    nlohmann::json values = nlohmann::json::object();
+    for (const std::string &key : new_config.keys()) {
+        const std::string val = new_config.opt_serialize(key);
+        if (!pristine.has(key) || pristine.opt_serialize(key) != val)
+            values[key] = val;
+    }
+    preset.config = std::move(new_config);
+    preset.is_visible = true;
+    unlock();
+
+    boost::filesystem::path dir(this->system_overrides_dir());
+    boost::filesystem::path file = dir / system_override_file_name(preset.name);
+    boost::system::error_code ec;
+    if (values.empty()) {
+        boost::filesystem::remove(file, ec);
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": system preset " << preset.name << " back to vendor values";
+        return;
+    }
+    boost::filesystem::create_directories(dir, ec);
+    nlohmann::json j;
+    j["name"]   = preset.name;
+    j["values"] = values;
+    boost::nowide::ofstream ofs(file.string(), std::ios::out | std::ios::trunc);
+    ofs << j.dump(4);
+    BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": saved " << values.size() << " overrides for system preset " << preset.name;
 }
 
 // Used for validating the "inherits" flag when importing user's config bundles.

@@ -1670,6 +1670,10 @@ std::pair<PresetsConfigSubstitutions, std::string> PresetBundle::load_system_pre
 	}
 
 	this->update_system_maps();
+    // Своя сборка: наложить сохранённые правки системных профилей.
+    this->prints.apply_system_overrides();
+    this->filaments.apply_system_overrides();
+    this->printers.apply_system_overrides();
     //QDS: add config related logs
     BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << boost::format(" finished, errors_cummulative %1%")%errors_cummulative;
     return std::make_pair(std::move(substitutions), errors_cummulative);

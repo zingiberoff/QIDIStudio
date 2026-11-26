@@ -465,6 +465,14 @@ public:
     std::string     name() const;
     // Name, to be used as a section name in config bundle, and as a folder name for presets.
     std::string     section_name() const;
+
+    // Своя сборка: правки системных профилей хранятся отдельными файлами-поправками
+    // в <data_dir>/system_overrides/<section>/ и накладываются после каждой загрузки
+    // системных профилей, поэтому переживают обновление профилей производителя.
+    std::string     system_overrides_dir() const;
+    void            apply_system_overrides();
+    // Сохраняет отредактированный конфиг в системный профиль preset и пишет поправку на диск.
+    void            save_system_override(Preset &preset, DynamicPrintConfig &&new_config);
     const std::deque<Preset>& operator()() const { return m_presets; }
 
     // Add default preset at the start of the collection, increment the m_default_preset counter.
@@ -803,6 +811,8 @@ private:
     // Use deque to force the container to allocate an object per each entry,
     // so that the addresses of the presets don't change during resizing of the container.
     std::deque<Preset>      m_presets;
+    // Своя сборка: исходные (без поправок) конфиги системных профилей, к которым есть поправки.
+    std::map<std::string, DynamicPrintConfig> m_system_pristine;
     // System profiles may have aliases. Map to the full profile name.
     std::map<std::string, std::vector<std::string>> m_map_alias_to_profile_name;
     std::unordered_map<std::string, std::unordered_set<std::string>> m_printer_hold_alias;
