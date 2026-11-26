@@ -101,12 +101,16 @@ bool QIDIDeviceWebSocket::connect(const std::string &device_id, const std::share
             BOOST_LOG_TRIVIAL(info) << "[WS] connected " << c->device_id << " " << c->url;
             c->request_object_list();
         });
-        conn->client.set_fail_handler([this, weak](websocketpp::connection_hdl) {
+        conn->client.set_fail_handler([this, weak](websocketpp::connection_hdl hdl) {
             auto c = weak.lock();
             if (!c)
                 return;
             c->open = false;
-            BOOST_LOG_TRIVIAL(warning) << "[WS] connection failed " << c->device_id << " " << c->url;
+            std::string reason;
+            try {
+                reason = c->client.get_con_from_hdl(hdl)->get_ec().message();
+            } catch (...) {}
+            BOOST_LOG_TRIVIAL(warning) << "[WS] connection failed " << c->device_id << " " << c->url << ": " << reason;
             if (!c->closing && on_status_changed)
                 on_status_changed(c->device_id, "offline");
         });
